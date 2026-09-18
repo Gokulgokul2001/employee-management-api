@@ -1,0 +1,25 @@
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: employee-management-db
+    environment:
+      MYSQL_DATABASE: employee_management_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - employee_mysql_data:/var/lib/mysql
+
+  app:
+    image: employee-management-api:latest
+    container_name: employee-management-api
+    depends_on:
+      - db
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
+    ports:
+      - "8081:8081"
+
+volumes:
+  employee_mysql_data:
