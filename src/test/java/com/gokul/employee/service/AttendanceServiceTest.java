@@ -9,20 +9,19 @@ import com.gokul.employee.exception.EmployeeNotFoundException;
 import com.gokul.employee.repository.AttendanceRepository;
 import com.gokul.employee.repository.EmployeeRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-
 
 class AttendanceServiceTest {
 
@@ -62,8 +61,8 @@ class AttendanceServiceTest {
                 1L,
                 LocalDate.of(2026, 9, 18),
                 "PRESENT",
-                LocalDate.of(2026, 9, 18),
-                LocalDate.of(2026, 9, 18)
+                LocalTime.of(9, 15),
+                LocalTime.of(18, 0)
         );
 
         Attendance savedAttendance = Attendance.builder()
@@ -86,16 +85,20 @@ class AttendanceServiceTest {
 
         assertEquals(1L, result.getId());
         assertEquals(1L, result.getEmployeeId());
-        assertEquals("GokulS", result.getEmployeeName());
-        assertEquals(LocalDate.of(2026, 9, 18), result.getAttendanceDate());
-        assertEquals("PRESENT", result.getStatus());
+        assertEquals("Gokul S", result.getEmployeeName());
         assertEquals(
                 LocalDate.of(2026, 9, 18),
+                result.getAttendanceDate()
+        );
+        assertEquals("PRESENT", result.getStatus());
+
+        assertEquals(
+                LocalTime.of(9, 15),
                 result.getCheckIn()
         );
 
         assertEquals(
-                LocalDate.of(2026, 9, 18),
+                LocalTime.of(18, 0),
                 result.getCheckOut()
         );
 
@@ -110,8 +113,8 @@ class AttendanceServiceTest {
                 99L,
                 LocalDate.of(2026, 9, 18),
                 "PRESENT",
-                LocalDate.of(2026, 9, 18),
-                LocalDate.of(2026, 9, 18)
+                LocalTime.of(9, 15),
+                LocalTime.of(18, 0)
         );
 
         when(employeeRepository.findById(99L))
@@ -153,8 +156,8 @@ class AttendanceServiceTest {
                 .employee(employee)
                 .attendanceDate(LocalDate.of(2026, 9, 18))
                 .status("PRESENT")
-                .checkIn(LocalDate.of(2026, 9, 18))
-                .checkOut(LocalDate.of(2026, 9, 18))
+                .checkIn(LocalTime.of(9, 10))
+                .checkOut(LocalTime.of(18, 0))
                 .build();
 
         Attendance attendance2 = Attendance.builder()
@@ -162,8 +165,8 @@ class AttendanceServiceTest {
                 .employee(employee)
                 .attendanceDate(LocalDate.of(2026, 9, 19))
                 .status("LATE")
-                .checkIn(LocalDate.of(2026, 9, 19))
-                .checkOut(LocalDate.of(2026, 9, 19))
+                .checkIn(LocalTime.of(9, 45))
+                .checkOut(LocalTime.of(18, 10))
                 .build();
 
         when(attendanceRepository.findAll())
@@ -176,12 +179,21 @@ class AttendanceServiceTest {
 
         assertEquals(1L, result.get(0).getId());
         assertEquals("PRESENT", result.get(0).getStatus());
+        assertEquals(
+                LocalTime.of(9, 10),
+                result.get(0).getCheckIn()
+        );
 
         assertEquals(2L, result.get(1).getId());
         assertEquals("LATE", result.get(1).getStatus());
+        assertEquals(
+                LocalTime.of(9, 45),
+                result.get(1).getCheckIn()
+        );
 
         verify(attendanceRepository).findAll();
     }
+
     @Test
     void getAttendanceByEmployeeId_shouldReturnAttendanceList() {
 
@@ -201,8 +213,8 @@ class AttendanceServiceTest {
                 .employee(employee)
                 .attendanceDate(LocalDate.of(2026, 9, 18))
                 .status("PRESENT")
-                .checkIn(LocalDate.of(2026, 9, 18))
-                .checkOut(LocalDate.of(2026, 9, 18))
+                .checkIn(LocalTime.of(9, 15))
+                .checkOut(LocalTime.of(18, 0))
                 .build();
 
         when(employeeRepository.findById(1L))
@@ -217,9 +229,10 @@ class AttendanceServiceTest {
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).getId());
         assertEquals(1L, result.get(0).getEmployeeId());
-        assertEquals("GokulS", result.get(0).getEmployeeName());
+        assertEquals("Gokul S", result.get(0).getEmployeeName());
         assertEquals("PRESENT", result.get(0).getStatus());
 
+        verify(employeeRepository).findById(1L);
         verify(attendanceRepository).findByEmployeeId(1L);
     }
 
@@ -260,15 +273,16 @@ class AttendanceServiceTest {
                 .designation("Java Developer")
                 .build();
 
-        LocalDate attendanceDate = LocalDate.of(2026, 9, 18);
+        LocalDate attendanceDate =
+                LocalDate.of(2026, 9, 18);
 
         Attendance attendance = Attendance.builder()
                 .id(1L)
                 .employee(employee)
                 .attendanceDate(attendanceDate)
                 .status("PRESENT")
-                .checkIn(attendanceDate)
-                .checkOut(attendanceDate)
+                .checkIn(LocalTime.of(9, 15))
+                .checkOut(LocalTime.of(18, 0))
                 .build();
 
         when(attendanceRepository.findByAttendanceDate(attendanceDate))
@@ -280,9 +294,17 @@ class AttendanceServiceTest {
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).getId());
         assertEquals(1L, result.get(0).getEmployeeId());
-        assertEquals("GokulS", result.get(0).getEmployeeName());
-        assertEquals(attendanceDate, result.get(0).getAttendanceDate());
+        assertEquals("Gokul S", result.get(0).getEmployeeName());
+        assertEquals(
+                attendanceDate,
+                result.get(0).getAttendanceDate()
+        );
         assertEquals("PRESENT", result.get(0).getStatus());
+
+        assertEquals(
+                LocalTime.of(9, 15),
+                result.get(0).getCheckIn()
+        );
 
         verify(attendanceRepository)
                 .findByAttendanceDate(attendanceDate);
@@ -291,7 +313,8 @@ class AttendanceServiceTest {
     @Test
     void getAttendanceByDate_shouldReturnEmptyList_whenNoAttendanceExists() {
 
-        LocalDate attendanceDate = LocalDate.of(2026, 9, 20);
+        LocalDate attendanceDate =
+                LocalDate.of(2026, 9, 20);
 
         when(attendanceRepository.findByAttendanceDate(attendanceDate))
                 .thenReturn(List.of());
@@ -324,16 +347,16 @@ class AttendanceServiceTest {
                 .employee(employee)
                 .attendanceDate(LocalDate.of(2026, 9, 18))
                 .status("PRESENT")
-                .checkIn(LocalDate.of(2026, 9, 18))
-                .checkOut(LocalDate.of(2026, 9, 18))
+                .checkIn(LocalTime.of(9, 15))
+                .checkOut(LocalTime.of(18, 0))
                 .build();
 
         AttendanceRequest request = new AttendanceRequest(
                 1L,
                 LocalDate.of(2026, 9, 19),
                 "LATE",
-                LocalDate.of(2026, 9, 19),
-                LocalDate.of(2026, 9, 19)
+                LocalTime.of(9, 45),
+                LocalTime.of(18, 10)
         );
 
         when(attendanceRepository.findById(1L))
@@ -351,9 +374,20 @@ class AttendanceServiceTest {
         assertEquals(1L, result.getId());
         assertEquals(1L, result.getEmployeeId());
         assertEquals("LATE", result.getStatus());
+
         assertEquals(
                 LocalDate.of(2026, 9, 19),
                 result.getAttendanceDate()
+        );
+
+        assertEquals(
+                LocalTime.of(9, 45),
+                result.getCheckIn()
+        );
+
+        assertEquals(
+                LocalTime.of(18, 10),
+                result.getCheckOut()
         );
 
         verify(attendanceRepository).findById(1L);
@@ -368,8 +402,8 @@ class AttendanceServiceTest {
                 1L,
                 LocalDate.of(2026, 9, 19),
                 "PRESENT",
-                LocalDate.of(2026, 9, 19),
-                LocalDate.of(2026, 9, 19)
+                LocalTime.of(9, 15),
+                LocalTime.of(18, 0)
         );
 
         when(attendanceRepository.findById(99L))
@@ -378,7 +412,10 @@ class AttendanceServiceTest {
         AttendanceNotFoundException exception =
                 assertThrows(
                         AttendanceNotFoundException.class,
-                        () -> attendanceService.updateAttendance(99L, request)
+                        () -> attendanceService.updateAttendance(
+                                99L,
+                                request
+                        )
                 );
 
         assertEquals(

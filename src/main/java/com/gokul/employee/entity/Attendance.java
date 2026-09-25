@@ -1,17 +1,20 @@
 package com.gokul.employee.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "attendance")
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Attendance {
 
     @Id
@@ -28,6 +31,7 @@ public class Attendance {
     @Column(nullable = false)
     private String status;
 
-    private LocalDate checkIn;
-    private LocalDate checkOut;
+    private LocalTime checkIn;
+
+    private LocalTime checkOut;
 }

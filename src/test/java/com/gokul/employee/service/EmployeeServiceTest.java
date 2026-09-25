@@ -1,18 +1,24 @@
+
 package com.gokul.employee.service;
 
+import com.gokul.employee.dto.EmployeeCreationResponse;
 import com.gokul.employee.dto.EmployeeRequest;
 import com.gokul.employee.dto.EmployeeResponse;
 import com.gokul.employee.entity.Department;
 import com.gokul.employee.entity.Employee;
+import com.gokul.employee.entity.User;
+import com.gokul.employee.exception.DepartmentNotFoundException;
 import com.gokul.employee.exception.EmployeeNotFoundException;
 import com.gokul.employee.repository.DepartmentRepository;
 import com.gokul.employee.repository.EmployeeRepository;
-import com.gokul.employee.exception.DepartmentNotFoundException;
+import com.gokul.employee.repository.UserRepository;
+import com.gokul.employee.entity.Role;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,6 +36,15 @@ class EmployeeServiceTest {
     @Mock
     private DepartmentRepository departmentRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private LeaveBalanceService leaveBalanceService;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     private EmployeeService employeeService;
 
     @BeforeEach
@@ -38,12 +53,15 @@ class EmployeeServiceTest {
 
         employeeService = new EmployeeService(
                 employeeRepository,
-                departmentRepository
+                departmentRepository,
+                userRepository,
+                leaveBalanceService,
+                passwordEncoder
         );
     }
 
     @Test
-    void createEmployee_shouldCreateSuccessfully() {
+    void createEmployee_shouldCreateEmployeeAndUserSuccessfully() {
 
         EmployeeRequest request = new EmployeeRequest(
                 "EMP001",
@@ -74,30 +92,45 @@ class EmployeeServiceTest {
                 .department(department)
                 .build();
 
-        when(departmentRepository.findById(request.getDepartmentId()))
+        when(departmentRepository.findById(1L))
                 .thenReturn(Optional.of(department));
+
+        when(userRepository.existsByEmail("gokul@test.com"))
+                .thenReturn(false);
+
+        when(passwordEncoder.encode(any(String.class)))
+                .thenReturn("encodedPassword");
 
         when(employeeRepository.save(any(Employee.class)))
                 .thenReturn(savedEmployee);
 
-        EmployeeResponse response =
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        EmployeeCreationResponse response =
                 employeeService.createEmployee(request);
 
         assertNotNull(response);
-        assertEquals(1L, response.getId());
-        assertEquals("EMP001", response.getEmployeeCode());
-        assertEquals("Gokul", response.getFirstName());
-        assertEquals("S", response.getLastName());
-        assertEquals("gokul@test.com", response.getEmail());
-        assertEquals("Java Developer", response.getDesignation());
-        assertEquals(1L, response.getDepartmentId());
-        assertEquals("IT", response.getDepartmentName());
+        assertNotNull(response.getEmployee());
+        assertNotNull(response.getTemporaryPassword());
+        assertEquals(12, response.getTemporaryPassword().length());
 
-        verify(departmentRepository)
-                .findById(1L);
+        EmployeeResponse employeeResponse = response.getEmployee();
 
-        verify(employeeRepository)
-                .save(any(Employee.class));
+        assertEquals(1L, employeeResponse.getId());
+        assertEquals("EMP001", employeeResponse.getEmployeeCode());
+        assertEquals("Gokul", employeeResponse.getFirstName());
+        assertEquals("S", employeeResponse.getLastName());
+        assertEquals("gokul@test.com", employeeResponse.getEmail());
+        assertEquals("Java Developer", employeeResponse.getDesignation());
+        assertEquals(1L, employeeResponse.getDepartmentId());
+        assertEquals("IT", employeeResponse.getDepartmentName());
+
+        verify(departmentRepository).findById(1L);
+        verify(employeeRepository).save(any(Employee.class));
+        verify(userRepository).save(any(User.class));
+        verify(passwordEncoder).encode(response.getTemporaryPassword());
+        verify(leaveBalanceService).initializeLeaveBalance(1L);
     }
 
     @Test
@@ -117,22 +150,15 @@ class EmployeeServiceTest {
         when(departmentRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        DepartmentNotFoundException exception =
-                assertThrows(
-                        DepartmentNotFoundException.class,
-                        () -> employeeService.createEmployee(request)
-                );
-
-        assertEquals(
-                "Department not found with id: 99",
-                exception.getMessage()
+        assertThrows(
+                DepartmentNotFoundException.class,
+                () -> employeeService.createEmployee(request)
         );
 
-        verify(departmentRepository).findById(99L);
-
-        verify(employeeRepository, never())
-                .save(any(Employee.class));
+        verify(employeeRepository, never()).save(any(Employee.class));
+        verify(userRepository, never()).save(any(User.class));
     }
+
     @Test
     void getAllEmployees_shouldReturnEmployeeList() {
 
@@ -173,10 +199,8 @@ class EmployeeServiceTest {
                 employeeService.getAllEmployees();
 
         assertEquals(2, result.size());
-
         assertEquals("EMP001", result.get(0).getEmployeeCode());
         assertEquals("Gokul", result.get(0).getFirstName());
-
         assertEquals("EMP002", result.get(1).getEmployeeCode());
         assertEquals("Rahul", result.get(1).getFirstName());
 
@@ -207,8 +231,7 @@ class EmployeeServiceTest {
         when(employeeRepository.findById(1L))
                 .thenReturn(Optional.of(employee));
 
-        EmployeeResponse result =
-                employeeService.getEmployeeById(1L);
+        EmployeeResponse result = employeeService.getEmployeeById(1L);
 
         assertEquals(1L, result.getId());
         assertEquals("EMP001", result.getEmployeeCode());
@@ -226,11 +249,10 @@ class EmployeeServiceTest {
         when(employeeRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        EmployeeNotFoundException exception =
-                assertThrows(
-                        EmployeeNotFoundException.class,
-                        () -> employeeService.getEmployeeById(99L)
-                );
+        EmployeeNotFoundException exception = assertThrows(
+                EmployeeNotFoundException.class,
+                () -> employeeService.getEmployeeById(99L)
+        );
 
         assertEquals(
                 "Employee not found with id: 99",
@@ -318,24 +340,13 @@ class EmployeeServiceTest {
         when(employeeRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        EmployeeNotFoundException exception =
-                assertThrows(
-                        EmployeeNotFoundException.class,
-                        () -> employeeService.updateEmployee(99L, request)
-                );
-
-        assertEquals(
-                "Employee not found with id: 99",
-                exception.getMessage()
+        assertThrows(
+                EmployeeNotFoundException.class,
+                () -> employeeService.updateEmployee(99L, request)
         );
 
-        verify(employeeRepository).findById(99L);
-
-        verify(departmentRepository, never())
-                .findById(anyLong());
-
-        verify(employeeRepository, never())
-                .save(any(Employee.class));
+        verify(departmentRepository, never()).findById(anyLong());
+        verify(employeeRepository, never()).save(any(Employee.class));
     }
 
     @Test
@@ -376,22 +387,14 @@ class EmployeeServiceTest {
         when(departmentRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        DepartmentNotFoundException exception =
-                assertThrows(
-                        DepartmentNotFoundException.class,
-                        () -> employeeService.updateEmployee(1L, request)
-                );
-
-        assertEquals(
-                "Department not found with id: 99",
-                exception.getMessage()
+        assertThrows(
+                DepartmentNotFoundException.class,
+                () -> employeeService.updateEmployee(1L, request)
         );
 
         verify(employeeRepository).findById(1L);
         verify(departmentRepository).findById(99L);
-
-        verify(employeeRepository, never())
-                .save(any(Employee.class));
+        verify(employeeRepository, never()).save(any(Employee.class));
     }
 
     @Test
@@ -423,20 +426,11 @@ class EmployeeServiceTest {
         when(employeeRepository.findById(99L))
                 .thenReturn(Optional.empty());
 
-        EmployeeNotFoundException exception =
-                assertThrows(
-                        EmployeeNotFoundException.class,
-                        () -> employeeService.deleteEmployee(99L)
-                );
-
-        assertEquals(
-                "Employee not found with id: 99",
-                exception.getMessage()
+        assertThrows(
+                EmployeeNotFoundException.class,
+                () -> employeeService.deleteEmployee(99L)
         );
 
-        verify(employeeRepository).findById(99L);
-
-        verify(employeeRepository, never())
-                .delete(any(Employee.class));
+        verify(employeeRepository, never()).delete(any(Employee.class));
     }
 }

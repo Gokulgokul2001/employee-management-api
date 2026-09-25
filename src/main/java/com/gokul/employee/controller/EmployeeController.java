@@ -1,17 +1,20 @@
-package com.gokul.employee.controller;
 
+package com.gokul.employee.controller;
 
 import com.gokul.employee.dto.EmployeeRequest;
 import com.gokul.employee.dto.EmployeeResponse;
+import com.gokul.employee.dto.EmployeeCreationResponse;
 import com.gokul.employee.service.EmployeeService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -28,14 +31,14 @@ public class EmployeeController {
 
     @Operation(
             summary = "Create an employee",
-            description = "Creates a new employee. Requires ADMIN or HR role."
+            description = "Creates an employee and login account with a temporary password. Requires ADMIN or HR role."
     )
     @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     @PostMapping
-    public ResponseEntity<EmployeeResponse> createEmployee(
+    public ResponseEntity<EmployeeCreationResponse> createEmployee(
             @Valid @RequestBody EmployeeRequest request) {
 
-        EmployeeResponse response =
+        EmployeeCreationResponse response =
                 employeeService.createEmployee(request);
 
         return ResponseEntity
@@ -49,8 +52,10 @@ public class EmployeeController {
     )
     @GetMapping
     public ResponseEntity<List<EmployeeResponse>> getAllEmployees() {
+
         List<EmployeeResponse> employees =
                 employeeService.getAllEmployees();
+
         return ResponseEntity.ok(employees);
     }
 
@@ -61,8 +66,10 @@ public class EmployeeController {
     @GetMapping("/{id}")
     public ResponseEntity<EmployeeResponse> getEmployeeById(
             @PathVariable Long id) {
+
         EmployeeResponse response =
                 employeeService.getEmployeeById(id);
+
         return ResponseEntity.ok(response);
     }
 
@@ -74,8 +81,11 @@ public class EmployeeController {
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponse> updateEmployee(
             @PathVariable Long id,
-            @Valid @RequestBody EmployeeRequest request){
-        EmployeeResponse response = employeeService.updateEmployee(id, request);
+            @Valid @RequestBody EmployeeRequest request) {
+
+        EmployeeResponse response =
+                employeeService.updateEmployee(id, request);
+
         return ResponseEntity.ok(response);
     }
 
@@ -86,8 +96,26 @@ public class EmployeeController {
     @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteEmployee(
-            @PathVariable Long id){
+            @PathVariable Long id) {
+
         employeeService.deleteEmployee(id);
+
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Get my employee details",
+            description = "Returns employee details for the authenticated user."
+    )
+    @GetMapping("/me")
+    public ResponseEntity<EmployeeResponse> getMyEmployeeDetails(
+            Authentication authentication) {
+
+        EmployeeResponse response =
+                employeeService.getMyEmployeeDetails(
+                        authentication.getName()
+                );
+
+        return ResponseEntity.ok(response);
     }
 }
